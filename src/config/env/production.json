@@ -1,0 +1,24 @@
+{
+  "API": {
+    "BINANCE": {
+      "URL": "https://api.binance.com/"
+    },
+    "CRYPTOCOMPARE": {
+      "URL": "https://min-api.cryptocompare.com"
+    },
+    "COBINHOOD": {
+      "URL": "https://api.cobinhood.com",
+      "SOCKET_URL": "wss://ws.cobinhood.com/v2/ws",
+      "SOCKET_VERSION": "2",
+      "KEY": ""
+    },
+    "KUCOIN": {
+      "URL": "https://api.kucoin.com",
+      "KEY": "",
+      "SECRET": ""
+    }
+  },
+  "MONGO": {
+    "URL": "mongodb://localhost:27017/macmind"
+  }
+}

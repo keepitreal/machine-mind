@@ -1,0 +1,4 @@
+*.sw[a-p]
+node_modules
+.DS_Store
+src/config/env/*-private.json
