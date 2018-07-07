@@ -5,26 +5,25 @@ import {parse} from 'url';
 import * as WebSocket from 'ws';
 
 export default class SocketClient {
-  client : any;
-  subscriptions : any;
+  client : WebSocket;
 
-  constructor(url, keepAlive, options) {
+  constructor(url, keepAlive = {}, options = {}) {
     const {host, path} = parse(url);
-
-    this.subscriptions = {};
 
     this.client = new WebSocket(url, options);
 
     this.client.on('open', (response) => {
-      console.log('connection open');
-
-      if (keepAlive) {
-        this.client.send(JSON.stringify(keepAlive));
-        setInterval(() => {
-          this.client.send(JSON.stringify(keepAlive));
-        }, 60 * 1000);
-      }
+      console.log('Connected to', url);
     });
+
+    const source$ = Observable.create(observer => {
+      this.client.on('message', response => {
+        const data = JSON.parse(response);
+        observer.next(data);
+      });
+    });
+
+    return source$;
   }
 
   publish(payload) {
@@ -39,14 +38,12 @@ export default class SocketClient {
     }
   }
 
-  subscribe(eventName) {
+  subscribe(eventName?: string) {
     const source$ = Observable.create(observer => {
       this.client.on('message', response => {
+        console.log(response)
         const data = JSON.parse(response);
-
-        if (data['h'][0] === eventName) {
-          observer.next(data['d']);
-        }
+        observer.next(data);
       });
     });
 

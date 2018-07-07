@@ -1,4 +1,5 @@
-import {Observable, merge, from} from 'rxjs';
+import {Observable, interval} from 'rxjs';
+import {flatMap} from 'rxjs/operators';
 import {createHmac} from 'crypto';
 import {format} from 'url';
 import {fetchPromise} from './utils';
@@ -9,18 +10,10 @@ const {API: {KUCOIN: kucoinConfig}} = config;
 
 export function getOrderBooks(
   symbol : string,
-  interval : number
+  intervalMS : number
 ) : Observable<OrderBooks> {
   const promise = fetchOrderBooks.bind(null, symbol);
-  const immediate$ = from(promise());
-
-  const source$ = Observable.create(observer => {
-    setInterval(() => {
-      promise().then(books => observer.next(books));
-    }, interval);
-  });
-
-  return source$;
+  return interval(intervalMS).pipe(flatMap(promise));
 }
 
 export async function fetchTradingPairs() {

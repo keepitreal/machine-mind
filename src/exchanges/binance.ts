@@ -1,7 +1,9 @@
-import {Observable, merge, from} from 'rxjs';
+import {Observable, interval} from 'rxjs';
+import {flatMap} from 'rxjs/operators';
 import {format} from 'url';
 import {fetchPromise} from './utils';
 import {OrderBooks} from '../interfaces';
+import SocketClient from '../Socket';
 
 const cfg: any = require(`../config/env/${process.env.NODE_ENV}.json`);
 const {API: {BINANCE: config}} = cfg;
@@ -9,18 +11,10 @@ const {API: {BINANCE: config}} = cfg;
 export function getOrderBooks(
   symbol : string,
   limit : number,
-  interval : number = 5000
+  intervalMS : number = 5000
 ) : Observable<OrderBooks> {
   const promise = fetchOrderBooks.bind(null, symbol, limit);
-  const immediate$ = from(promise());
-
-  const interval$ = Observable.create(observer => {
-    setInterval(() => {
-      promise().then(books => observer.next(books));
-    }, interval)
-  });
-
-  return interval$;
+  return interval(intervalMS).pipe(flatMap(promise));
 }
 
 export async function fetchOrderBooks(
@@ -32,6 +26,15 @@ export async function fetchOrderBooks(
   const formatted = formatOrderBooks(response);
 
   return formatted;
+}
+
+export function getOrderBooksSocket(
+  symbol : string
+) {
+  const url = format(`${config.SOCKET_URL}${symbol.toLowerCase()}@depth`);
+  const source$ = new SocketClient(url);
+
+  return source$;
 }
 
 function formatOrderBooks(response) {

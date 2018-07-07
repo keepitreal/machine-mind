@@ -10,22 +10,31 @@ export default async function leadingExchangeEngine() {
   const trailExchange = { name: 'kucoin', symbol: 'BTC-USDT' };
 
   // Get average amount that binance leads by (this tells me when to buy on the trailing exchange)
-  const binanceLeadAverages$ = getExchangeAverages(leadExchange, trailExchange);
+
+  const binanceBooks$ = binance.getOrderBooksSocket('BTCUSDT');
+
+  binanceBooks$.subscribe(x => console.log(x));
 
   // Get average diff between exchanges (this tells me when price has normalized and I can sell)
 
   // Start polling to look for leads/trails
 
-  const opportunity$ = combineLatestObject({
-    kucoinOrderBooks: kucoin.getOrderBooks('BTC-USDT', 5000),
-    binanceOrderBooks: binance.getOrderBooks('BTCUSDT', 10, 5000),
-  })
-  .pipe(map(({kucoinOrderBooks, binanceOrderBooks}) => ({
-    lowestSell: kucoinOrderBooks.SELL.slice().shift(),
-    highestBuy: binanceOrderBooks.BUY.slice().shift(),
-  })))
-  .pipe(filter(({lowestSell, highestBuy}) => highestBuy > lowestSell))
-  .pipe(map(result => console.log(result)));
+//   const kucoinBooks$ = kucoin.getOrderBooks('BTC-USDT', 5000);
+//   const binanceBooks$ = binance.getOrderBooks('BTCUSDT', 10, 5000);
+
+//   const btc$ = combineLatestObject({
+//     kucoinOrderBooks: kucoinBooks$,
+//     binanceOrderBooks: binanceBooks$,
+//   })
+//   .pipe(map(({kucoinOrderBooks, binanceOrderBooks}) => ({
+//     lowestSell: kucoinOrderBooks.SELL.slice().shift(),
+//     highestBuy: binanceOrderBooks.BUY.slice().shift(),
+//   })))
+//   .pipe(map(({lowestSell, highestBuy}) => {
+//     const [lowestSellPrice] = lowestSell;
+//     const [highestBuyPrice] = highestBuy;
+//     return priceDiffPct(highestBuyPrice, lowestSellPrice);
+//   }));
 
   // Next steps
   // - A good opportunity will be a spike in diff compared to prior periods
@@ -36,19 +45,17 @@ export default async function leadingExchangeEngine() {
   // - Difference between the lowest SELL price on the trailing exchange and the highest BUY
   //   price on the leading exchange exceeds the average
   // - Account for fees as well
-  // - Perhaps prior periods have tighter differences (still evaluating)
+  // - Perhaps prior periods should have tighter differences (still evaluating)
 
-  opportunity$.subscribe(x => x);
-  //   binanceOrderBooks$.subscribe(x => console.log(x));
+//   opportunity$.subscribe(x => console.log(x));
 }
+
 
 function getExchangeAverages(exchangeA : ExchangeSymbol, exchangeB : ExchangeSymbol) {
   const averages$ = combineLatestObject({
     a: fetchHistoMinute(exchangeA.name, exchangeA.symbol),
     b: fetchHistoMinute(exchangeB.name, exchangeB.symbol),
-  }).pipe(map(({a, b}) => {
-    return compareExchanges(a, b);
-  }));
+  }).pipe(map(({a, b}) => compareExchanges(a, b)));
 
   return averages$;
 }

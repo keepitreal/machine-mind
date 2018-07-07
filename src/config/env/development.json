@@ -1,7 +1,8 @@
 {
   "API": {
     "BINANCE": {
-      "URL": "https://api.binance.com/"
+      "URL": "https://api.binance.com/",
+      "SOCKET_URL": "wss://stream.binance.com:9443/ws/"
     },
     "CRYPTOCOMPARE": {
       "URL": "https://min-api.cryptocompare.com"
