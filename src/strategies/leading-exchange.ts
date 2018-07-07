@@ -11,9 +11,9 @@ export default async function leadingExchangeEngine() {
 
   // Get average amount that binance leads by (this tells me when to buy on the trailing exchange)
 
-  const binanceBooks$ = binance.getOrderBooksSocket('BTCUSDT');
+  const binanceBooks$ = await binance.getOrderBooksSocket('BTCUSDT');
 
-  binanceBooks$.subscribe(x => console.log(x));
+  binanceBooks$.subscribe(x => x);
 
   // Get average diff between exchanges (this tells me when price has normalized and I can sell)
 

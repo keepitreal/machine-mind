@@ -4,6 +4,26 @@ import {parse} from 'url';
 
 import * as WebSocket from 'ws';
 
+export function createSocketObserver(
+  url : string,
+  options = {},
+) : Observable<any> {
+  const socket = new WebSocket(url, options);
+
+  socket.on('open', response => {
+    console.log('Connected to', url);
+  });
+
+  const source$ = Observable.create(observer => {
+    socket.on('message', response => {
+      const data = JSON.parse(response);
+      observer.next(data);
+    });
+  });
+
+  return source$;
+}
+
 export default class SocketClient {
   client : WebSocket;
 
@@ -50,5 +70,3 @@ export default class SocketClient {
     return source$;
   }
 }
-
-

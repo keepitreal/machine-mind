@@ -1,9 +1,9 @@
-import {Observable, interval} from 'rxjs';
-import {flatMap} from 'rxjs/operators';
+import {Observable, interval, of, merge} from 'rxjs';
+import {flatMap, scan, map} from 'rxjs/operators';
 import {format} from 'url';
 import {fetchPromise} from './utils';
-import {OrderBooks} from '../interfaces';
-import SocketClient from '../Socket';
+import {OrderBooks, OrderBook} from '../interfaces';
+import {createSocketObserver} from '../Socket';
 
 const cfg: any = require(`../config/env/${process.env.NODE_ENV}.json`);
 const {API: {BINANCE: config}} = cfg;
@@ -28,28 +28,72 @@ export async function fetchOrderBooks(
   return formatted;
 }
 
-export function getOrderBooksSocket(
+export async function getOrderBooksSocket(
   symbol : string
-) {
-  const url = format(`${config.SOCKET_URL}${symbol.toLowerCase()}@depth`);
-  const source$ = new SocketClient(url);
+) : Promise<Observable<any>> {
+  const books = await fetchOrderBooks(symbol);
+  const booksInitial$ = of(books);
 
-  return source$;
+  const booksUpdate$ = orderBooksSocket(symbol);
+  const books$ = merge(booksInitial$, booksUpdate$);
+
+  return books$.pipe(scan((acc, curr) => {
+    console.log('scan')
+    return patchOrderBookUpdate(acc, curr);
+  }));
+}
+
+function patchOrderBookUpdate(
+  books : OrderBooks,
+  update : OrderBooks
+) : OrderBooks {
+  const {BUY: buy, SELL: sell} = books;
+  const {BUY: buyUpdate, SELL: sellUpdate} = update;
+
+  return {
+    BUY: patchBookUpdate(buy, buyUpdate),
+    SELL: patchBookUpdate(sell, sellUpdate),
+  };
+}
+
+function patchBookUpdate(
+  book : OrderBook,
+  update : OrderBook
+) : OrderBook {
+  console.log(book);
+  console.log(update);
+
+  return book;
+}
+
+export function orderBooksSocket(
+  symbol : string
+) : Observable<any> {
+  const url = format(`${config.SOCKET_URL}${symbol.toLowerCase()}@depth`);
+  const books$ = createSocketObserver(url);
+
+  return books$
+    .pipe(map(books => formatOrderBooks(books)));
 }
 
 function formatOrderBooks(response) {
   return {
-    BUY: formatOrderBook(response.bids),
-    SELL: formatOrderBook(response.asks),
+    BUY: formatOrderBook(response.bids || response.b),
+    SELL: formatOrderBook(response.asks || response.a),
   };
 }
 
 function formatOrderBook(orders) {
-  return orders.map(([price, qty]) => [
-    price,
-    qty,
-    price * qty, // volume
-  ]);
+  return orders.map(([priceStr, quantityStr]) => {
+    const price = parseFloat(priceStr);
+    const quantity = parseFloat(quantityStr);
+
+    return [
+      price,
+      quantity,
+      price * quantity, // volume
+    ];
+  });
 }
 
 async function requestEndpoint(endpoint) {
