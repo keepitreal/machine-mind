@@ -1,4 +1,4 @@
-export type Order = [number, number, number, string?, string?];
+export type Order = [number, number, number];
 export type Tranche = Array<Order>;
 
 export type OrderBook = Array<Order>;

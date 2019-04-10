@@ -4,6 +4,7 @@ import {format} from 'url';
 import {fetchPromise} from './utils';
 import {OrderBooks, OrderBook} from '../interfaces';
 import {createSocketObserver} from '../Socket';
+import {patchOrderBooksUpdate} from '../utils';
 
 const cfg: any = require(`../config/env/${process.env.NODE_ENV}.json`);
 const {API: {BINANCE: config}} = cfg;
@@ -19,7 +20,7 @@ export function getOrderBooks(
 
 export async function fetchOrderBooks(
   symbol : string,
-  limit : number = 10
+  limit : number = 1000
 ) : Promise<OrderBooks> {
   const endpoint = `/api/v1/depth?symbol=${symbol}&limit=${limit}`;
   const response = await requestEndpoint(endpoint);
@@ -29,46 +30,23 @@ export async function fetchOrderBooks(
 }
 
 export async function getOrderBooksSocket(
-  symbol : string
-) : Promise<Observable<any>> {
+  symbol : string,
+  limit : number = 50
+) : Promise<Observable<OrderBooks>> {
   const books = await fetchOrderBooks(symbol);
   const booksInitial$ = of(books);
 
   const booksUpdate$ = orderBooksSocket(symbol);
   const books$ = merge(booksInitial$, booksUpdate$);
 
-  return books$.pipe(scan((acc, curr) => {
-    console.log('scan')
-    return patchOrderBookUpdate(acc, curr);
-  }));
-}
-
-function patchOrderBookUpdate(
-  books : OrderBooks,
-  update : OrderBooks
-) : OrderBooks {
-  const {BUY: buy, SELL: sell} = books;
-  const {BUY: buyUpdate, SELL: sellUpdate} = update;
-
-  return {
-    BUY: patchBookUpdate(buy, buyUpdate),
-    SELL: patchBookUpdate(sell, sellUpdate),
-  };
-}
-
-function patchBookUpdate(
-  book : OrderBook,
-  update : OrderBook
-) : OrderBook {
-  console.log(book);
-  console.log(update);
-
-  return book;
+  return books$
+    .pipe(scan((acc, curr) => patchOrderBooksUpdate(acc, curr)))
+    .pipe(map(books => truncateOrderBooks(books, limit)));
 }
 
 export function orderBooksSocket(
   symbol : string
-) : Observable<any> {
+) : Observable<OrderBooks> {
   const url = format(`${config.SOCKET_URL}${symbol.toLowerCase()}@depth`);
   const books$ = createSocketObserver(url);
 
@@ -76,10 +54,17 @@ export function orderBooksSocket(
     .pipe(map(books => formatOrderBooks(books)));
 }
 
-function formatOrderBooks(response) {
+function formatOrderBooks(response) : OrderBooks {
   return {
     BUY: formatOrderBook(response.bids || response.b),
     SELL: formatOrderBook(response.asks || response.a),
+  };
+}
+
+function truncateOrderBooks(books, limit) : OrderBooks {
+  return {
+    BUY: books.BUY.slice(0, limit),
+    SELL: books.SELL.slice(0, limit)
   };
 }
 

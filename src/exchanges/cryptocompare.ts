@@ -26,6 +26,10 @@ export async function fetchExchangesAndPairs() {
   return response;
 }
 
+export async function fetchExchangeForPair(symbol : string) {
+  
+}
+
 async function requestCryptocompareEndpoint(endpoint) {
   const url = format(cryptoCompareConfig.URL + endpoint);
 

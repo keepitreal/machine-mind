@@ -1,7 +1,7 @@
 import {map, filter} from 'rxjs/operators';
 import {combineLatestObject} from 'rxjs-etc';
 import * as meanBy from 'lodash/meanBy';
-import {fetchHistoMinute} from '../exchanges/cryptocompare';
+import {fetchHistoMinute, fetchExchangesForPair} from '../exchanges/cryptocompare';
 import * as kucoin from '../exchanges/kucoin';
 import * as binance from '../exchanges/binance';
 
@@ -11,9 +11,23 @@ export default async function leadingExchangeEngine() {
 
   // Get average amount that binance leads by (this tells me when to buy on the trailing exchange)
 
-  const binanceBooks$ = await binance.getOrderBooksSocket('BTCUSDT');
+//   const binanceBooks$ = await binance.getOrderBooksSocket('BTCUSDT', 10);
 
-  binanceBooks$.subscribe(x => x);
+//   binanceBooks$.subscribe(x => {
+//     console.log(x)
+//     return x;
+  //   });
+  //
+
+  // restarting here to be more thorough
+  // get a list of exchanges where a certain pair is offered
+  const exchanges = await fetchExchangesForPair('BTC-USDT');
+  console.log(exchanges);
+
+  // :
+
+
+
 
   // Get average diff between exchanges (this tells me when price has normalized and I can sell)
 
