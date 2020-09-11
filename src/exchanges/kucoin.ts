@@ -17,28 +17,28 @@ export function getOrderBooks(
 }
 
 export async function fetchTradingPairs() {
-  const endpoint = '/v1/market/open/symbols';
+  const endpoint = '/api/v1/symbols';
   const response = await requestKucoinEndpoint(endpoint);
 
   return response;
 }
 
 export async function fetchOrderBooks(symbol) {
-  const endpoint = `/v1/open/orders?symbol=${symbol}`;
+  const endpoint = `/api/v1/market/orderbook/level2_20?symbol=${symbol}`;
   const response = await requestKucoinEndpoint(endpoint);
 
   return response;
 }
 
 export async function fetchAccountInfo() {
-  const endpoint = '/v1/user/info';
+  const endpoint = '/api/v1/accounts';
   const response = await requestKucoinEndpoint(endpoint);
 
   return response;
 }
 
-export async function fetchBalanceForCoin(coin) {
-  const endpoint = `/v1/account/${coin}/balance`;
+export async function fetchBalances(accountId: string) {
+  const endpoint = `/api/v1/accounts/${accountId}`;
   const response = await requestKucoinEndpoint(endpoint);
 
   return response || {balance: 0};
@@ -62,6 +62,7 @@ async function requestKucoinEndpoint(endpoint) {
 
     return body.data;
   } catch (err) {
+    console.log(err);
     throw new Error(err);
   }
 }

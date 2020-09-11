@@ -9,14 +9,13 @@ export function fetchPromise(location : string, options?) : Promise<string> {
         console.log('Error: ', err);
         reject(err);
       } else {
-        resolve(body);
+        resolve(body.toString());
       }
     })
   })
 }
 
 export function fromPromise(location : string, options? : any) {
-  console.log(location)
   return from(fetchPromise(location, options))
     .pipe(map(response => JSON.parse(response)));
 }

@@ -3,6 +3,11 @@ export const OPERATIONS = {
   SELL: 'SELL',
 };
 
+export const OPERATION_TO_BOOK = {
+  BUY: 'asks',
+  SELL: 'bids',
+};
+
 export const COBINHOOD_OPERATIONS = {
   BID: 'bid',
   ASK: 'ask',

@@ -8,7 +8,6 @@
   * - Incorporate minimum order size (this may dry up opportunities but it won't work without it :(  )
   *
   * TODO - FUTURE EXCHANGES
-  * - Cobinhood (zero fees)
   * - Cryptopia
   * - Kraken (margin trading plus USD pairs)
   * - Bitstamp (USD pairs)
@@ -27,27 +26,22 @@ import {
 } from '../interfaces';
 
 import * as kucoin from '../exchanges/kucoin';
-import * as cobinhood from '../exchanges/cobinhood';
 
 import {
-  OPERATIONS
+  OPERATION_TO_BOOK,
+  OPERATIONS,
 } from '../constants';
 
 const MAX_TRADE = 0.5;
-const KUCOIN_FEE = 0.001;
+const KUCOIN_FEE = 0.000;
 const COBINHOOD_FEE = 0;
 const TIMEOUT = 4000;
 
 export default async function triangularArbitrageEngine() {
   try {
-    const kucoinTradeAmount = await getMaxTrade(kucoin.fetchBalanceForCoin);
-    const cobinhoodTradeAmount = await getMaxTrade(cobinhood.fetchBalanceForCoin);
-
+    // const kucoinTradeAmount = await getMaxTrade(kucoin.fetchBalanceForCoin);
+    const kucoinTradeAmount = 100;
     startKucoinEngine(kucoinTradeAmount);
-    startCobinhoodEngine(cobinhoodTradeAmount);
-
-//     testCobinhoodSocket();
-
   } catch (err) {
     console.log('Error Caught:', err);
   }
@@ -78,43 +72,6 @@ async function startKucoinEngine(tradeAmount, tradingPairs?) {
   setTimeout(() => startKucoinEngine(tradeAmount, tradingPairs), TIMEOUT);
 }
 
-function testCobinhoodSocket() {
-  // be careful here LOL
-  cobinhood.placeLimitBuyOrder('ETH-USDT', 510, 0.041, (response) => {
-    console.log('limit buy callback');
-    console.log(response);
-  });
-}
-
-async function startCobinhoodEngine(tradeAmount, tradingPairs?) {
-  const {
-    fetchOrderBooks,
-    fetchTradingPairs,
-  } = cobinhood;
-
-  if (!tradingPairs) {
-    tradingPairs = await fetchTradingPairs();
-  }
-
-  if (tradingPairs && tradingPairs.length) {
-    const triangles = buildTriangles(tradingPairs, 'cobinhood');
-    const tradesFromTriangles = getTradesFromTriangles(triangles);
-
-    const books = await getOrdersForTrades(tradesFromTriangles,
-      tradeAmount, fetchOrderBooks);
-
-    const tradesToExecute = getTradesToExecute(books, tradesFromTriangles,
-      tradeAmount, COBINHOOD_FEE);
-  }
-
-  setTimeout(() => startCobinhoodEngine(tradeAmount, tradingPairs), TIMEOUT);
-
-  // TODO: Replace setTimeout with socket-based updating
-  // get initial books for each pair
-  // set up socket connections for changes pairs
-  // when a socket message updates a pair, update all triangles that include that pair
-}
-
 async function getMaxTrade(fetchBalanceForCoin) {
   const {USDTBalance} = await getUSDTBalance(fetchBalanceForCoin);
   const tradeAmount = USDTBalance * MAX_TRADE;
@@ -122,10 +79,18 @@ async function getMaxTrade(fetchBalanceForCoin) {
   return tradeAmount;
 }
 
+let totalProfit = 0;
+const trades = new Set();
+
+setInterval(() => {
+  trades.clear();
+}, 60 * 1000);
+
 function getTradesToExecute(books, triangles, tradeAmount, fee) {
   if (!books) {
     return;
   }
+
 
   triangles.forEach((triangle, index) => {
     const booksForTrades = matchBooksToTrades(triangle.trades, books);
@@ -136,28 +101,36 @@ function getTradesToExecute(books, triangles, tradeAmount, fee) {
     if (profit > 0.01) {
       console.log('TRIANGLE');
       console.log(triangle);
-      console.log('TRANCHES');
-      console.log(profitableTranches);
-      console.log('ORDERS');
-      console.log(orders);
+      // console.log('TRANCHES');
+      // console.log(profitableTranches);
+      // console.log('ORDERS');
+      // console.log(orders);
       console.log('PROFIT');
       console.log(profit);
+
+      const topPair = triangle.trades[0].symbol;
+      if (!trades.has(topPair)) {
+        totalProfit += profit;
+        trades.add(topPair);
+      }
     }
   });
 
+  console.log('TOTAL:');
+  console.log(totalProfit);
   return null;
 }
 
 function buildTriangles(tradingPairs, exchange) {
   const pairsMap = tradingPairs.reduce((map, curr) => {
-    if (!map[curr.coinType]) {
-      map[curr.coinType] = decorateCoinData(curr);
+    if (!map[curr.baseCurrency]) {
+      map[curr.baseCurrency] = decorateCoinData(curr);
     }
 
-    if (curr.coinTypePair === 'USDT') {
-      map[curr.coinType].USDT = curr;
+    if (curr.quoteCurrency === 'USDT') {
+      map[curr.baseCurrency].USDT = curr;
     } else {
-      map[curr.coinType].pairs[curr.coinTypePair] = curr;
+      map[curr.baseCurrency].pairs[curr.quoteCurrency] = curr;
     }
 
     return map;
@@ -170,14 +143,16 @@ function buildTriangles(tradingPairs, exchange) {
     }, {});
 
   const triangles = Object.entries(tradeablePairs).reduce((prev, [symb, pair]: [any, any]) => {
-    const subTriangles = Object.entries(pair.pairs).map(([subSymb, subCoin]) => {
-      return {
-        exchange,
-        c1c2: subCoin,
-        c1USDT: pair.USDT,
-        c2USDT: pairsMap[subSymb].USDT
-      };
-    });
+    const subTriangles = Object.entries(pair.pairs)
+      .filter(([symb]) => pairsMap[symb])
+      .map(([subSymb, subCoin]) => {
+        return {
+          exchange,
+          c1c2: subCoin,
+          c1USDT: pair.USDT,
+          c2USDT: pairsMap[subSymb].USDT
+        };
+      });
 
     return prev.concat(subTriangles)
   }, []);
@@ -193,8 +168,7 @@ async function getUSDTBalance(fetchBalanceForCoin) {
 
 // BUY -> SELL, SELL -> BUY
 function getBookTypeForOperation(operation : string): string {
-  return operation === OPERATIONS.BUY ?
-    OPERATIONS.SELL : OPERATIONS.BUY;
+  return OPERATION_TO_BOOK[operation];
 }
 
 function getProfitableTranches(tranches : Array<Tranche>, feeRate : number) {
@@ -252,9 +226,14 @@ function buildTranches(triangle : Triangle, books) {
     const B_Order = B_Books[0];
     const C_Order = C_Books[0];
 
-    const [A_Price, A_Amount, A_Volume] = A_Order;
-    const [B_Price, B_Amount, B_Volume] = B_Order;
-    const [C_Price, C_Amount, C_Volume] = C_Order;
+    const [A_Price, A_Amount] = A_Order;
+    const A_Volume = A_Price * A_Amount;
+
+    const [B_Price, B_Amount] = B_Order;
+    const B_Volume = B_Price * B_Amount;
+
+    const [C_Price, C_Amount] = C_Order;
+    const C_Volume = C_Price * C_Amount;
 
     const AA = 1, BB = 1, CC = 1;
     const AB = c1c2 ? B_Amount / A_Amount : B_Volume / A_Amount;
