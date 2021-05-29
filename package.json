@@ -19,7 +19,7 @@
     "rxjs-etc": "^7.3.0",
     "socket.io": "^2.4.0",
     "uuid": "^3.2.1",
-    "ws": "^5.2.0",
+    "ws": "^7.4.6",
     "xstream": "^11.2.0"
   },
   "devDependencies": {
